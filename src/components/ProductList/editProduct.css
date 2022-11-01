@@ -1,0 +1,19 @@
+
+.editProductPage {
+    margin-top: 20px;
+    margin-left: 50px;
+}
+
+.productLabel {
+    display: block;
+    margin-top: 10px;
+}
+
+.productInputElement {
+    display: block;
+    margin-top: 3px;
+}
+
+.productButton {
+    margin-right: 10px;
+}
