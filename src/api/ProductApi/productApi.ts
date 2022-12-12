@@ -1,7 +1,8 @@
 import { ProductSortOrder } from './productSortOrder';
 import Product from './product';
+import ProductResponse from './productResponse';
 
-export const getProducts = (pageNo: number, sortOrder: ProductSortOrder) => {
+export const getProducts = (pageNo: number, sortOrder: ProductSortOrder) : Promise<ProductResponse> => {
 
     // const init = { headers: [['Content-Type', 'application/json'], ['Accept', 'application/json']] };
     return fetch("https://localhost:44316/api/product", {
@@ -9,7 +10,13 @@ export const getProducts = (pageNo: number, sortOrder: ProductSortOrder) => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
-        }}).then(response => response.json());
+        }}).then(response => {
+            if(!response.ok) {
+                throw new Error(`Error retrieving Products! ${response.statusText}`);
+            }
+            const isJson = response.headers.get('content-type')?.includes('application/json');
+            return isJson ? response.json() : null
+        });
 
     // TODO: Move code to unit tests.
     // if (pageNo === 1) {
@@ -44,7 +51,7 @@ export const saveProduct = (product: Product) => {
             },
             body: JSON.stringify(product)
         }).then(response => {
-            if (response.status<200 && response.status>=300) {
+            if (response.status >= 400) {
                 throw Error(`Issue saving product with id: ${product.id}`);
             }
             return;
@@ -58,7 +65,7 @@ export const saveProduct = (product: Product) => {
             },
             body: JSON.stringify(product)
         }).then(response => {
-            if (response.status<200 && response.status>=300) {
+            if (response.status >= 400) {
                 throw Error(`Issue adding product: ${product.name}`);
             }
             return;
@@ -72,7 +79,7 @@ export const deleteProduct = (id: number) => {
         headers: {
           'Content-Type': 'application/json'
         }}).then(response => {
-            if (response.status<200 && response.status>=300) {
+            if (response.status >= 400) {
                 throw Error(`Issue deleting product with id: ${id}`);
             }
             return;
