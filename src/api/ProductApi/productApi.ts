@@ -1,11 +1,21 @@
 import { ProductSortOrder } from './productSortOrder';
 import Product from './product';
 import ProductResponse from './productResponse';
+import { appConfig } from "../../config/appConfig";
 
-export const getProducts = (pageNo: number, sortOrder: ProductSortOrder) : Promise<ProductResponse> => {
+// https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+let controller: AbortController;
 
-    // const init = { headers: [['Content-Type', 'application/json'], ['Accept', 'application/json']] };
-    return fetch("https://localhost:44316/api/product", {
+export const getProducts = (pageNo: number, sortOrder: ProductSortOrder, sortAsc: boolean) : Promise<ProductResponse> => {
+
+    if (controller) {
+        controller.abort();
+        console.log("fetch aborted");
+    }
+    controller = new AbortController();
+    
+    return fetch(`${appConfig().url.products}api/product?page=${pageNo}&limit=10&sortorder=${sortOrder}&sortAsc=${sortAsc}`, {
+        signal: controller.signal,
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -16,6 +26,18 @@ export const getProducts = (pageNo: number, sortOrder: ProductSortOrder) : Promi
             }
             const isJson = response.headers.get('content-type')?.includes('application/json');
             return isJson ? response.json() : null
+        }).catch(error => {
+            // https://pgarciacamou.medium.com/using-abortcontroller-with-fetch-api-and-reactjs-8d4177e51270
+            if (error.name === 'AbortError') {
+                return new Response(JSON.stringify({}), {
+                status: 499, // Client Closed Request
+                statusText: error.message || 'Client Closed Request',
+                })
+            }
+            return new Response(JSON.stringify({}), {
+                status: 599, // Network Connect Timeout Error
+                statusText: error.message || 'Network Connect Timeout Error',
+            })
         });
 
     // TODO: Move code to unit tests.
@@ -43,8 +65,12 @@ export const getProducts = (pageNo: number, sortOrder: ProductSortOrder) : Promi
 }
 
 export const saveProduct = (product: Product) => {
+    if (controller) {
+        controller.abort();
+        console.log("fetch aborted");
+    }
     if (product.id > 0) {
-        return fetch(`https://localhost:44316/api/product/${product.id}`, {
+        return fetch(`${appConfig().url.products}api/product/${product.id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -57,7 +83,7 @@ export const saveProduct = (product: Product) => {
             return;
         })
     } else {
-        return fetch(`https://localhost:44316/api/product`, {
+        return fetch(`${appConfig().url.products}api/product`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -74,7 +100,12 @@ export const saveProduct = (product: Product) => {
 }
 
 export const deleteProduct = (id: number) => {
-    return fetch(`https://localhost:44316/api/product/${id}`, {
+    if (controller) {
+        controller.abort();
+        console.log("fetch aborted");
+    }
+    
+    return fetch(`${appConfig().url.products}api/product/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -83,5 +114,20 @@ export const deleteProduct = (id: number) => {
                 throw Error(`Issue deleting product with id: ${id}`);
             }
             return;
+        });
+}
+
+export const getProductApiVersion = () => {
+    
+    return fetch(`${appConfig().url.products}api/product/version`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }}).then(response => {
+            if(!response.ok) {
+                throw new Error(`Error retrieving Product version! ${response.statusText}`);
+            }
+            const isJson = response.headers.get('content-type')?.includes('application/json');
+            return isJson ? response.json() : response?.text();
         });
 }

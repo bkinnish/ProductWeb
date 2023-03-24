@@ -1,6 +1,6 @@
 export enum ProductSortOrder {
-    name,
-    price,
-    type,
-    active
+    name = "name",
+    price = "price",
+    type = "type",
+    active = "active"
 }

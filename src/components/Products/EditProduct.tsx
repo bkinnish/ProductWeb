@@ -3,7 +3,7 @@ import Product from "../../api/ProductApi/product";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import "./editProduct.css";
-import ValidationError from "../../common/validation/";
+import ValidationError from "../../common/validation";
 import { isNullOrUndefined } from "../../common/utils/valueCheck";
 
 interface EditProductProps {
@@ -70,7 +70,6 @@ const EditProduct: FunctionComponent<EditProductProps> = ({
     event.preventDefault();
 
     const validationObject = handleValidateData();
-    debugger;
     if (
       isNullOrUndefined(validationObject?.name) &&
       isNullOrUndefined(validationObject?.price) &&

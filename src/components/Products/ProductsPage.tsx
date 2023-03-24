@@ -5,6 +5,7 @@ import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import EditProduct from "./EditProduct";
 import {
+  getProductApiVersion,
   getProducts,
   saveProduct,
   deleteProduct,
@@ -12,15 +13,20 @@ import {
 import Product from "../../api/ProductApi/product";
 import { ProductSortOrder } from "../../api/ProductApi/productSortOrder";
 import { formatCurrency } from "../../common/utils/numbers";
-import "./productList.css";
+import LoadingAndErrorMessages from "../../common/Messages/LoadingAndErrorMessages";
+import "./productsPage.css";
 
-const ProductList: FunctionComponent = () => {
+const ProductPage: FunctionComponent = () => {
+  const [productApiVersion, setProductApiVersion] = useState<string | null>(
+    null
+  );
   const [productData, setProductData] = useState<Product[]>([]);
   const [maxPagesCount, setMaxPagesCount] = useState<number>(0);
-  const [activePage, setActivePage] = useState<number>(1);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [sortOrder, setSortOrder] = useState<ProductSortOrder>(
     ProductSortOrder.name
   );
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState<boolean>(false);
   const [deleteProductId, setDeleteProductId] = useState<number>(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -30,41 +36,54 @@ const ProductList: FunctionComponent = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      loadVersion();
+    }
     loadData(1);
   }, []);
 
+  const loadVersion = () => {
+    getProductApiVersion().then((response) => {
+      setProductApiVersion(response);
+    });
+  };
+
   const loadData = (
     pageNo: number,
-    sortOrder: ProductSortOrder = ProductSortOrder.name
+    sortOrder: ProductSortOrder = ProductSortOrder.name,
+    sortAsc: boolean = true
   ) => {
     setIsLoading(true);
-    getProducts(pageNo, sortOrder)
+    getProducts(pageNo, sortOrder, sortAsc)
       .then(
         (response) => {
-          setIsLoading(false);
-          setProductData(response?.products || []);
-          setActivePage(response?.activePage || 1);
-          setMaxPagesCount(response?.maxPages || 0);
+          setProductData(response?.items || []);
+          setCurrentPage(response?.currentPage || 1);
+          setMaxPagesCount(response?.totalPages || 0);
+          setErrorMessage(undefined);
         },
         (err) => {
-          setIsLoading(false);
           setErrorMessage(err.message);
         }
       )
       .catch((err) => {
         // Handle network errors.
+        setErrorMessage(err.message || "Network Connect Timeout Error");
+      })
+      .finally(() => {
         setIsLoading(false);
-        setErrorMessage(err.message);
       });
   };
 
-  const handleSortProducts = (sortOrder: ProductSortOrder) => {
-    setSortOrder(sortOrder);
-    loadData(1, sortOrder);
+  const handleSortProducts = (newSortOrder: ProductSortOrder) => {
+    setSortOrder(newSortOrder);
+    var newSortAsc = sortOrder === newSortOrder ? !sortAsc : sortAsc;
+    setSortAsc(newSortAsc);
+    loadData(1, newSortOrder, newSortAsc);
   };
 
   const handleChangePage = (pageNo: number) => {
-    loadData(pageNo);
+    loadData(pageNo, sortOrder, sortAsc);
   };
 
   const handleAddProduct = () => {
@@ -85,7 +104,7 @@ const ProductList: FunctionComponent = () => {
   const handleSaveChanges = (product: Product) => {
     saveProduct(product).then((response) => {
       setEditingProduct(null);
-      loadData(activePage, sortOrder);
+      loadData(currentPage, sortOrder, sortAsc);
     });
   };
 
@@ -108,7 +127,7 @@ const ProductList: FunctionComponent = () => {
         .then((respone) => {
           setShowDeleteDialog(false);
           setDeleteProductId(0);
-          loadData(activePage, sortOrder);
+          loadData(currentPage, sortOrder, sortAsc);
         })
         .catch((err) => {
           console.log(err);
@@ -131,7 +150,7 @@ const ProductList: FunctionComponent = () => {
     pagingItems.push(
       <Pagination.Item
         key={page}
-        active={page === activePage}
+        active={page === currentPage}
         onClick={() => handleChangePage(pageNo)}
       >
         {page}
@@ -139,15 +158,23 @@ const ProductList: FunctionComponent = () => {
     );
   }
 
+  const isDataLoaded = !isLoading && !errorMessage && productData?.length > 0;
+
   return (
-    <div className="productListPage">
+    <div className="productPage">
       <h2>Retail Products</h2>
-      {isLoading && <div className="spinner-border m-5" role="status" />}
+      {productApiVersion && <div>Product: {productApiVersion}</div>}
+      <LoadingAndErrorMessages
+        isLoading={isLoading}
+        loadingErrorMessage={errorMessage}
+        isAnyData={isDataLoaded}
+      />
+      {/* {isLoading && <div className="spinner-border m-5" role="status" />}
       {errorMessage && (
         <div className="alert alert-danger alert-dismissible fade show">
           <strong>Error</strong> {errorMessage}
         </div>
-      )}
+      )} */}
       {!isLoading && !errorMessage && editingProduct !== null && (
         <EditProduct
           initialProduct={editingProduct}
@@ -155,27 +182,41 @@ const ProductList: FunctionComponent = () => {
           onCancelChanges={handleCancelChanges}
         />
       )}
-      {!isLoading && !errorMessage && editingProduct === null && (
+      {isDataLoaded && editingProduct === null && (
         <React.Fragment>
-          <div className="addProduct">
-            <Button variant="success" onClick={() => handleAddProduct()}>
-              Add Product
-            </Button>
+          <div className="productsButtonWrapper">
+            <div className="addProductButton">
+              <Button variant="success" onClick={() => handleAddProduct()}>
+                Add Product
+              </Button>
+            </div>
           </div>
           <Table striped bordered hover>
             <thead>
               <tr>
                 <th>#</th>
-                <th onClick={() => handleSortProducts(ProductSortOrder.name)}>
+                <th
+                  className="productSortHeader"
+                  onClick={() => handleSortProducts(ProductSortOrder.name)}
+                >
                   Name
                 </th>
-                <th onClick={() => handleSortProducts(ProductSortOrder.price)}>
+                <th
+                  className="productSortHeader"
+                  onClick={() => handleSortProducts(ProductSortOrder.price)}
+                >
                   Price
                 </th>
-                <th onClick={() => handleSortProducts(ProductSortOrder.type)}>
+                <th
+                  className="productSortHeader"
+                  onClick={() => handleSortProducts(ProductSortOrder.type)}
+                >
                   Type
                 </th>
-                <th onClick={() => handleSortProducts(ProductSortOrder.active)}>
+                <th
+                  className="productSortHeader"
+                  onClick={() => handleSortProducts(ProductSortOrder.active)}
+                >
                   Active
                 </th>
                 <th />
@@ -233,4 +274,4 @@ const ProductList: FunctionComponent = () => {
   );
 };
 
-export default ProductList;
+export default ProductPage;

@@ -1,7 +1,8 @@
 import Product from './product';
 
 export default interface ProductResponse {
-    products: Product[],
-    activePage: number,
-    maxPages: number
+    items: Product[],
+    totalItems: number,
+    currentPage: number,
+    totalPages: number
 }
